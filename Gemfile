@@ -12,7 +12,8 @@ gem 'puma', '~> 3.7'
 gem 'redis-rails', '~> 5'
 # gem 'bcrypt', '~> 3.1.7'
 # gem 'rack-cors'
-gem 'telegram-bot'
+gem 'telegram-bot', github: 'telegram-bot-rb/telegram-bot', ref: '384d203'
+gem 'faraday'
 
 group :development, :test do
   gem 'byebug', platforms: [:mri, :mingw, :x64_mingw]

@@ -49,6 +49,9 @@ Rails.application.configure do
   # Use a different cache store in production.
   # config.cache_store = :mem_cache_store
 
+  # Enable Bot's session unconditionally.
+  config.telegram_updates_controller.session_store = :redis_store, { expires_in: 1.month }
+
   # Use a real queuing backend for Active Job (and separate queues per environment)
   # config.active_job.queue_adapter     = :resque
   # config.active_job.queue_name_prefix = "chopchop_bot_#{Rails.env}"
