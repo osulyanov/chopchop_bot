@@ -39,7 +39,7 @@ class TelegramController < Telegram::Bot::UpdatesController
 
   def service(*args)
     if args.any?
-      save_context :service
+      save_context :barber
       service_name = args.join ' '
       service = services.select { |e| "#{e['title']} — #{e['price_min']}₽" == service_name }.first
       session[:service_id] = service['id']
@@ -54,6 +54,26 @@ class TelegramController < Telegram::Bot::UpdatesController
     else
       save_context :service
       respond_with :message, text: 'Эм, мы такое не делаем 🤷🏻‍♂️'
+    end
+  end
+
+  def barber(*args)
+    if args.any?
+      save_context :service
+      barber_name = args.join ' '
+      barber = barbers.select { |e| e['name'] == barber_name }.first
+      session[:barber_id] = barber['id']
+      respond_with :message, text: "#{barber['name']} красавчик ,поддерживаю 🤘🏻", reply_markup: {
+        remove_keyboard: true
+      }
+      respond_with :message, text: 'Свободного времени не так много, давай подберём удобное для тебя', reply_markup: {
+        keyboard: date_names,
+        resize_keyboard: true,
+        selective: true
+      }
+    else
+      save_context :barber
+      respond_with :message, text: 'Это кто? 😦'
     end
   end
 
@@ -96,5 +116,20 @@ class TelegramController < Telegram::Bot::UpdatesController
 
   def barbers_names
     barbers.map { |e| [e['name']] }
+  end
+
+  def dates
+    @dates ||= []
+    @dates[session[:branch_id]] ||= []
+    @dates[session[:branch_id]][session[:service_id]] ||= []
+    @dates[session[:branch_id]][session[:service_id]][session[:barber_id]] ||= begin
+      response = Faraday.get "https://n87731.yclients.com/api/v1/book_dates/#{session[:branch_id]}?service_ids%5B%5D=#{session[:service_id]}&staff_id=session[:barber_id]",
+                             nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
+      JSON.parse(response.body)['booking_dates']
+    end
+  end
+
+  def date_names
+    dates.map { |e| [Date.parse(e).strftime('%e %B, %A')] }
   end
 end
