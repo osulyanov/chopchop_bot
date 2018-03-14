@@ -17,6 +17,7 @@ class TelegramController < Telegram::Bot::UpdatesController
 
   def address(*args)
     if args.any?
+      save_context :service
       branch_name = args.join ' '
       branch = locations.select { |e| e['title'] == branch_name }.first
       session[:branch_id] = branch['id']
@@ -26,13 +27,33 @@ class TelegramController < Telegram::Bot::UpdatesController
       respond_with :message, text: "Адрес: #{branch['address']}"
       respond_with :message, text: "Телефон: #{branch['phone']}"
       respond_with :message, text: 'Что делать будем?', reply_markup: {
-        keyboard: service_names(session[:branch_id]),
+        keyboard: service_names,
         resize_keyboard: true,
         selective: true
       }
     else
-      save_context :enroll
+      save_context :address
       respond_with :message, text: 'Я не знаю где это, выбери филиал из списка 😂'
+    end
+  end
+
+  def service(*args)
+    if args.any?
+      save_context :service
+      service_name = args.join ' '
+      service = services.select { |e| "#{e['title']} — #{e['price_min']}₽" == service_name }.first
+      session[:service_id] = service['id']
+      respond_with :message, text: "#{service['title']}, хорошо 👌🏻", reply_markup: {
+        remove_keyboard: true
+      }
+      respond_with :message, text: 'Кому доверим своё самое ценное?', reply_markup: {
+        keyboard: barbers_names,
+        resize_keyboard: true,
+        selective: true
+      }
+    else
+      save_context :service
+      respond_with :message, text: 'Эм, мы такое не делаем 🤷🏻‍♂️'
     end
   end
 
@@ -50,16 +71,30 @@ class TelegramController < Telegram::Bot::UpdatesController
     locations.map { |e| [e['title']] }
   end
 
-  def services(branch_id)
+  def services
     @services ||= []
-    @services[branch_id] ||= begin
-      response = Faraday.get "https://n87731.yclients.com/api/v1/book_services/#{branch_id}?staff_id=&datetime=&bookform_id=87731",
+    @services[session[:branch_id]] ||= begin
+      response = Faraday.get "https://n87731.yclients.com/api/v1/book_services/#{session[:branch_id]}?staff_id=&datetime=&bookform_id=87731",
                              nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
       JSON.parse(response.body)['services']
     end
   end
 
-  def service_names(branch_id)
-    services(branch_id).map { |e| ["#{e['title']} — #{e['price_min']}₽"] }
+  def service_names
+    services.map { |e| ["#{e['title']} — #{e['price_min']}₽"] }
+  end
+
+  def barbers
+    @barbers ||= []
+    @barbers[session[:branch_id]] ||= []
+    @barbers[session[:branch_id]][session[:service_id]] ||= begin
+      response = Faraday.get "https://n87731.yclients.com/api/v1/book_staff/#{session[:branch_id]}?service_ids%5B%5D=#{session[:service_id]}&datetime=&without_seances=1",
+                             nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
+      JSON.parse(response.body).select { |e| e['bookable'] }
+    end
+  end
+
+  def barbers_names
+    barbers.map { |e| [e['name']] }
   end
 end
