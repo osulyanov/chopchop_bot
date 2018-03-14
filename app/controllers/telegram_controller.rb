@@ -63,10 +63,10 @@ class TelegramController < Telegram::Bot::UpdatesController
       barber_name = args.join ' '
       barber = barbers.select { |e| e['name'] == barber_name }.first
       session[:barber_id] = barber['id']
-      respond_with :message, text: "#{barber['name']} красавчик ,поддерживаю 🤘🏻", reply_markup: {
+      respond_with :message, text: "#{barber['name']} красавчик, поддерживаю 🤘🏻", reply_markup: {
         remove_keyboard: true
       }
-      respond_with :message, text: 'Свободного времени не так много, давай подберём удобное для тебя', reply_markup: {
+      respond_with :message, text: 'В какой день зайдёшь?', reply_markup: {
         keyboard: date_names,
         resize_keyboard: true,
         selective: true
@@ -78,8 +78,9 @@ class TelegramController < Telegram::Bot::UpdatesController
   end
 
   def date(*args)
+    puts 'satrt date'
     if args.any?
-      save_context :date
+      save_context :time
       date_name = args.join ' '
       date = dates.select { |e| Date.parse(e).strftime('%e %B, %A') == date_name }.first
       session[:date] = date
@@ -87,14 +88,41 @@ class TelegramController < Telegram::Bot::UpdatesController
         remove_keyboard: true
       }
       respond_with :message, text: 'Свободного времени не так много, давай подберём удобное для тебя', reply_markup: {
-        keyboard: datetime_names,
+        keyboard: time_names,
         resize_keyboard: true,
         selective: true
       }
     else
       save_context :date
+      # respond_with :message, text: 'Что-то не получается в этот день, давай выберем что-то другое'
+    end
+  end
+
+  def time(*args)
+    puts 'satrt time'
+    if args.any?
+      save_context :finish
+      time_name = args.join ' '
+      time = times.select { |e| e['time'] == time_name }.first
+      session[:time] = time
+      respond_with :message, text: "Приходи ровно в #{time_name}, не опаздывай", reply_markup: {
+        remove_keyboard: true
+      }
+      respond_with :message, text: 'Для записи нужен номер твоего мобильного', reply_markup: {
+        keyboard: [[{ text: 'Звони на этот мобильный', request_contact: true }]],
+        resize_keyboard: true,
+        selective: true
+      }
+    else
+      save_context :time
       respond_with :message, text: 'Что-то не получается в это время, давай выберем что-то другое'
     end
+  end
+
+  def finish(*)
+    respond_with :message, text: 'Мы наберём тебе, до встречи 👋🏻', reply_markup: {
+      remove_keyboard: true
+    }
   end
 
   private
@@ -139,13 +167,13 @@ class TelegramController < Telegram::Bot::UpdatesController
     dates.map { |e| [Date.parse(e).strftime('%e %B, %A')] }
   end
 
-  def datetimes
+  def times
     response = Faraday.get "https://n87731.yclients.com/api/v1/book_times/#{session[:branch_id]}/#{session[:barber_id]}/#{session[:date]}?service_ids%5B%5D=#{session[:service_id]}",
                            nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
     JSON.parse response.body
   end
 
-  def datetime_names
-    datetimes.map { |e| [e['time']] }
+  def time_names
+    times.map { |e| [e['time']] }
   end
 end
