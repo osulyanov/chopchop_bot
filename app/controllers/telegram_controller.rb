@@ -11,6 +11,7 @@ class TelegramController < Telegram::Bot::UpdatesController
     respond_with :message, text: 'Где тебе будет удобнее к нам заскочить?', reply_markup: {
       keyboard: [[{ text: 'Ближайший ко мне', request_location: true }]] + location_names,
       resize_keyboard: true,
+      one_time_keyboard: true,
       selective: true
     }
   end
@@ -29,6 +30,7 @@ class TelegramController < Telegram::Bot::UpdatesController
       respond_with :message, text: 'Что делать будем?', reply_markup: {
         keyboard: service_names,
         resize_keyboard: true,
+        one_time_keyboard: true,
         selective: true
       }
     else
@@ -49,6 +51,7 @@ class TelegramController < Telegram::Bot::UpdatesController
       respond_with :message, text: 'Кому доверим своё самое ценное?', reply_markup: {
         keyboard: barbers_names,
         resize_keyboard: true,
+        one_time_keyboard: true,
         selective: true
       }
     else
@@ -69,6 +72,7 @@ class TelegramController < Telegram::Bot::UpdatesController
       respond_with :message, text: 'В какой день зайдёшь?', reply_markup: {
         keyboard: date_names,
         resize_keyboard: true,
+        one_time_keyboard: true,
         selective: true
       }
     else
@@ -78,7 +82,6 @@ class TelegramController < Telegram::Bot::UpdatesController
   end
 
   def date(*args)
-    puts 'satrt date'
     if args.any?
       save_context :time
       date_name = args.join ' '
@@ -90,6 +93,7 @@ class TelegramController < Telegram::Bot::UpdatesController
       respond_with :message, text: 'Свободного времени не так много, давай подберём удобное для тебя', reply_markup: {
         keyboard: time_names,
         resize_keyboard: true,
+        one_time_keyboard: true,
         selective: true
       }
     else
@@ -99,7 +103,6 @@ class TelegramController < Telegram::Bot::UpdatesController
   end
 
   def time(*args)
-    puts 'satrt time'
     if args.any?
       save_context :finish
       time_name = args.join ' '
@@ -111,6 +114,7 @@ class TelegramController < Telegram::Bot::UpdatesController
       respond_with :message, text: 'Для записи нужен номер твоего мобильного', reply_markup: {
         keyboard: [[{ text: 'Звони на этот мобильный', request_contact: true }]],
         resize_keyboard: true,
+        one_time_keyboard: true,
         selective: true
       }
     else
