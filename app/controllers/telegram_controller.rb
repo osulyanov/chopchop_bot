@@ -59,7 +59,7 @@ class TelegramController < Telegram::Bot::UpdatesController
 
   def barber(*args)
     if args.any?
-      save_context :service
+      save_context :date
       barber_name = args.join ' '
       barber = barbers.select { |e| e['name'] == barber_name }.first
       session[:barber_id] = barber['id']
@@ -77,14 +77,32 @@ class TelegramController < Telegram::Bot::UpdatesController
     end
   end
 
+  def date(*args)
+    if args.any?
+      save_context :date
+      date_name = args.join ' '
+      date = dates.select { |e| Date.parse(e).strftime('%e %B, %A') == date_name }.first
+      session[:date] = date
+      respond_with :message, text: "Отлично, #{date_name} идеально", reply_markup: {
+        remove_keyboard: true
+      }
+      respond_with :message, text: 'Свободного времени не так много, давай подберём удобное для тебя', reply_markup: {
+        keyboard: datetime_names,
+        resize_keyboard: true,
+        selective: true
+      }
+    else
+      save_context :date
+      respond_with :message, text: 'Что-то не получается в это время, давай выберем что-то другое'
+    end
+  end
+
   private
 
   def locations
-    @locations ||= begin
-      response = Faraday.get 'https://n87731.yclients.com/api/v1/companies/?group_id=15&count=1000&forBooking=1',
-                             nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
-      JSON.parse response.body
-    end
+    response = Faraday.get 'https://n87731.yclients.com/api/v1/companies/?group_id=15&count=1000&forBooking=1',
+                           nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
+    JSON.parse response.body
   end
 
   def location_names
@@ -92,12 +110,9 @@ class TelegramController < Telegram::Bot::UpdatesController
   end
 
   def services
-    @services ||= []
-    @services[session[:branch_id]] ||= begin
-      response = Faraday.get "https://n87731.yclients.com/api/v1/book_services/#{session[:branch_id]}?staff_id=&datetime=&bookform_id=87731",
-                             nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
-      JSON.parse(response.body)['services']
-    end
+    response = Faraday.get "https://n87731.yclients.com/api/v1/book_services/#{session[:branch_id]}?staff_id=&datetime=&bookform_id=87731",
+                           nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
+    JSON.parse(response.body)['services']
   end
 
   def service_names
@@ -105,13 +120,9 @@ class TelegramController < Telegram::Bot::UpdatesController
   end
 
   def barbers
-    @barbers ||= []
-    @barbers[session[:branch_id]] ||= []
-    @barbers[session[:branch_id]][session[:service_id]] ||= begin
-      response = Faraday.get "https://n87731.yclients.com/api/v1/book_staff/#{session[:branch_id]}?service_ids%5B%5D=#{session[:service_id]}&datetime=&without_seances=1",
-                             nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
-      JSON.parse(response.body).select { |e| e['bookable'] }
-    end
+    response = Faraday.get "https://n87731.yclients.com/api/v1/book_staff/#{session[:branch_id]}?service_ids%5B%5D=#{session[:service_id]}&datetime=&without_seances=1",
+                           nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
+    JSON.parse(response.body).select { |e| e['bookable'] }
   end
 
   def barbers_names
@@ -119,17 +130,22 @@ class TelegramController < Telegram::Bot::UpdatesController
   end
 
   def dates
-    @dates ||= []
-    @dates[session[:branch_id]] ||= []
-    @dates[session[:branch_id]][session[:service_id]] ||= []
-    @dates[session[:branch_id]][session[:service_id]][session[:barber_id]] ||= begin
-      response = Faraday.get "https://n87731.yclients.com/api/v1/book_dates/#{session[:branch_id]}?service_ids%5B%5D=#{session[:service_id]}&staff_id=session[:barber_id]",
-                             nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
-      JSON.parse(response.body)['booking_dates']
-    end
+    response = Faraday.get "https://n87731.yclients.com/api/v1/book_dates/#{session[:branch_id]}?service_ids%5B%5D=#{session[:service_id]}&staff_id=#{session[:barber_id]}",
+                           nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
+    JSON.parse(response.body)['booking_dates']
   end
 
   def date_names
     dates.map { |e| [Date.parse(e).strftime('%e %B, %A')] }
+  end
+
+  def datetimes
+    response = Faraday.get "https://n87731.yclients.com/api/v1/book_times/#{session[:branch_id]}/#{session[:barber_id]}/#{session[:date]}?service_ids%5B%5D=#{session[:service_id]}",
+                           nil, authorization: "Bearer #{Rails.application.secrets.yclients_token}"
+    JSON.parse response.body
+  end
+
+  def datetime_names
+    datetimes.map { |e| [e['time']] }
   end
 end
